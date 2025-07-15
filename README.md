@@ -117,11 +117,3 @@ chat-with-isaacsim/
 2. **Camera not found**: Ensure Isaac Sim is running with nova_carter3 robot
 3. **ROS 2 connection issues**: Verify ROS 2 environment and topic availability
 4. **ChatGPT errors**: Check OpenAI API key and internet connection
-
-## Notes
-
-- The system uses YOLOv8 instead of YOLOv13 (which is not officially released)
-- Red block detection uses HSV color space for better color filtering
-- Generated code is validated before execution for safety
-- The system includes fallback mechanisms when ChatGPT fails
-- Continuous monitoring ensures real-time object detection and response
