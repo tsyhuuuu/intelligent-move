@@ -8,7 +8,7 @@ torch
 torchvision
 ultralytics
 openai
-speech_recognition
+SpeechRecognition
 pyaudio
 pyttsx3
 transformers
