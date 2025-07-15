@@ -13,10 +13,10 @@ import time
 import os
 from typing import Optional, Dict, Any
 
-from src.speech_recognition_module import SpeechRecognitionModule
-from src.object_detection import RedBlockDetector
-from src.chatgpt_integration import ChatGPTCodeGenerator
-from src.robot_controller import NovaCarterController
+from intelligent_move.src.speech_recognition_module import SpeechRecognitionModule
+from intelligent_move.src.object_detection import RedBlockDetector
+from intelligent_move.src.chatgpt_integration import ChatGPTCodeGenerator
+from intelligent_move.src.robot_controller import NovaCarterController
 
 class RobotOrchestrator:
     def __init__(self):
@@ -26,7 +26,8 @@ class RobotOrchestrator:
         self.logger = logging.getLogger(__name__)
         
         # Initialize ROS 2
-        rclpy.init()
+        if not rclpy.ok():
+            rclpy.init()
         
         # Initialize components
         self.speech_recognizer = SpeechRecognitionModule()
@@ -36,10 +37,10 @@ class RobotOrchestrator:
         # Initialize ChatGPT (requires API key)
         api_key = os.getenv('OPENAI_API_KEY')
         if not api_key:
-            self.logger.error("OPENAI_API_KEY environment variable not set")
-            raise ValueError("OpenAI API key is required")
-        
-        self.code_generator = ChatGPTCodeGenerator(api_key)
+            self.logger.warning("OPENAI_API_KEY environment variable not set - ChatGPT features disabled")
+            self.code_generator = None
+        else:
+            self.code_generator = ChatGPTCodeGenerator(api_key)
         
         # State variables
         self.is_running = False
@@ -85,23 +86,29 @@ class RobotOrchestrator:
         
         if block_info:
             # Generate code to approach the red block
-            generated_code = self.code_generator.generate_block_approach_code(block_info)
-            
-            if generated_code and self.code_generator.validate_generated_code(generated_code):
-                self.logger.info("Executing generated robot control code")
-                self.execute_robot_action(generated_code)
+            if self.code_generator:
+                generated_code = self.code_generator.generate_block_approach_code(block_info)
+                
+                if generated_code and self.code_generator.validate_generated_code(generated_code):
+                    self.logger.info("Executing generated robot control code")
+                    self.execute_robot_action(generated_code)
+                else:
+                    self.logger.error("Failed to generate valid robot control code")
+                    self.fallback_approach_block(block_info)
             else:
-                self.logger.error("Failed to generate valid robot control code")
                 self.fallback_approach_block(block_info)
         else:
             # No red block detected, generate general movement code
-            generated_code = self.code_generator.generate_robot_code(command)
-            
-            if generated_code and self.code_generator.validate_generated_code(generated_code):
-                self.logger.info("Executing generated robot control code")
-                self.execute_robot_action(generated_code)
+            if self.code_generator:
+                generated_code = self.code_generator.generate_robot_code(command)
+                
+                if generated_code and self.code_generator.validate_generated_code(generated_code):
+                    self.logger.info("Executing generated robot control code")
+                    self.execute_robot_action(generated_code)
+                else:
+                    self.logger.error("Failed to generate valid robot control code")
+                    self.fallback_movement(command)
             else:
-                self.logger.error("Failed to generate valid robot control code")
                 self.fallback_movement(command)
     
     def execute_robot_action(self, code: str):
@@ -268,11 +275,13 @@ class RobotOrchestrator:
         self.is_running = False
         
         # Stop robot movement
-        self.robot_controller.stop_movement()
+        if hasattr(self, 'robot_controller') and self.robot_controller:
+            self.robot_controller.stop_movement()
+            self.robot_controller.shutdown()
         
-        # Shutdown ROS 2
-        self.robot_controller.shutdown()
-        rclpy.shutdown()
+        # Shutdown ROS 2 if it was initialized
+        if rclpy.ok():
+            rclpy.shutdown()
 
 def main():
     """Main function"""

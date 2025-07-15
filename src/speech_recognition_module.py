@@ -14,10 +14,15 @@ class SpeechRecognitionModule:
         self.recognizer = sr.Recognizer()
         self.microphone = sr.Microphone()
         self.logger = logging.getLogger(__name__)
+        self.is_listening = False
         
         # Adjust for ambient noise
-        with self.microphone as source:
-            self.recognizer.adjust_for_ambient_noise(source)
+        try:
+            with self.microphone as source:
+                self.recognizer.adjust_for_ambient_noise(source)
+                self.logger.info("Speech recognition initialized successfully")
+        except Exception as e:
+            self.logger.error(f"Failed to initialize microphone: {e}")
             
     def listen_for_command(self, timeout: int = 10) -> Optional[str]:
         """
@@ -56,7 +61,20 @@ class SpeechRecognitionModule:
         Args:
             callback_function: Function to call with recognized text
         """
-        while True:
-            command = self.listen_for_command()
-            if command:
-                callback_function(command)
+        self.is_listening = True
+        while self.is_listening:
+            try:
+                command = self.listen_for_command()
+                if command:
+                    callback_function(command)
+            except KeyboardInterrupt:
+                self.logger.info("Continuous listening interrupted")
+                break
+            except Exception as e:
+                self.logger.error(f"Error in continuous listening: {e}")
+                break
+    
+    def stop_listening(self):
+        """Stop continuous listening"""
+        self.is_listening = False
+        self.logger.info("Stopped continuous listening")

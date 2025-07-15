@@ -18,9 +18,15 @@ class ChatGPTCodeGenerator:
             api_key: OpenAI API key
             model: GPT model to use
         """
-        self.client = openai.OpenAI(api_key=api_key)
-        self.model = model
-        self.logger = logging.getLogger(__name__)
+        try:
+            self.client = openai.OpenAI(api_key=api_key)
+            self.model = model
+            self.logger = logging.getLogger(__name__)
+            self.logger.info(f"ChatGPT client initialized with model: {model}")
+        except Exception as e:
+            self.logger = logging.getLogger(__name__)
+            self.logger.error(f"Failed to initialize ChatGPT client: {e}")
+            raise
         
         # System prompt for ROS 2 code generation
         self.system_prompt = """
@@ -74,13 +80,17 @@ The code should be a complete ROS 2 node that can be executed directly.
                     {"role": "user", "content": user_message}
                 ],
                 temperature=0.3,
-                max_tokens=2000
+                max_tokens=2000,
+                timeout=30  # 30 second timeout
             )
             
-            generated_code = response.choices[0].message.content
-            self.logger.info(f"Generated code for command: {command}")
-            
-            return generated_code
+            if response.choices and response.choices[0].message.content:
+                generated_code = response.choices[0].message.content
+                self.logger.info(f"Generated code for command: {command}")
+                return generated_code
+            else:
+                self.logger.error("Empty response from ChatGPT")
+                return None
             
         except Exception as e:
             self.logger.error(f"Error generating code: {e}")

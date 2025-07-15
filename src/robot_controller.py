@@ -90,7 +90,7 @@ class NovaCarterController(Node):
         start_time = time.time()
         while (time.time() - start_time) < move_time:
             self.cmd_vel_pub.publish(twist)
-            time.sleep(0.1)
+            rclpy.spin_once(self, timeout_sec=0.1)
         
         # Stop movement
         self.stop_movement()
@@ -112,7 +112,7 @@ class NovaCarterController(Node):
         start_time = time.time()
         while (time.time() - start_time) < move_time:
             self.cmd_vel_pub.publish(twist)
-            time.sleep(0.1)
+            rclpy.spin_once(self, timeout_sec=0.1)
         
         self.stop_movement()
     
@@ -135,7 +135,7 @@ class NovaCarterController(Node):
         start_time = time.time()
         while (time.time() - start_time) < turn_time:
             self.cmd_vel_pub.publish(twist)
-            time.sleep(0.1)
+            rclpy.spin_once(self, timeout_sec=0.1)
         
         self.stop_movement()
     
@@ -157,7 +157,7 @@ class NovaCarterController(Node):
         start_time = time.time()
         while (time.time() - start_time) < turn_time:
             self.cmd_vel_pub.publish(twist)
-            time.sleep(0.1)
+            rclpy.spin_once(self, timeout_sec=0.1)
         
         self.stop_movement()
     
@@ -227,10 +227,14 @@ class NovaCarterController(Node):
         self.cmd_vel_pub.publish(twist)
     
     def execute_generated_code(self, code: str):
-        """Execute generated robot control code"""
+        """Execute generated robot control code with safety restrictions"""
         try:
-            # Create local namespace with access to controller methods
-            local_namespace = {
+            # Restricted imports for safety
+            safe_globals = {
+                '__builtins__': {
+                    'len': len, 'range': range, 'min': min, 'max': max,
+                    'abs': abs, 'round': round, 'print': print
+                },
                 'controller': self,
                 'rclpy': rclpy,
                 'Twist': Twist,
@@ -239,8 +243,15 @@ class NovaCarterController(Node):
                 'threading': threading
             }
             
-            # Execute the generated code
-            exec(code, local_namespace)
+            # Check for dangerous patterns
+            dangerous_patterns = ['import', 'exec', 'eval', 'open', 'file', '__import__', 'subprocess']
+            for pattern in dangerous_patterns:
+                if pattern in code:
+                    self.get_logger().error(f"Dangerous pattern detected in code: {pattern}")
+                    return
+            
+            # Execute with restricted globals
+            exec(code, safe_globals, {})
             
         except Exception as e:
             self.get_logger().error(f"Error executing generated code: {e}")
